@@ -49,7 +49,7 @@ jobs:
           default = re.search(r'\bdefaultConfig\s*\{', content)
 
           if not android or not default:
-              raise SystemExit("Could not find android/defaultConfig")
+              raise SystemExit("Android configuration not found")
 
           if not re.search(r'\bcompileOptions\s*\{', content):
               pos = android.end()
@@ -73,7 +73,37 @@ jobs:
           with open(path, "w") as f:
               f.write(content)
 
-          print("Java 17 and NDK ABI filters configured.")
+          print("Android configuration fixed")
+          PY
+
+      - name: Fix AlertDialog import
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["PROJECT_DIR"])
+          files = list(root.glob("app/src/main/java/**/MainActivity.kt"))
+
+          if not files:
+              raise SystemExit("MainActivity.kt not found")
+
+          path = files[0]
+          content = path.read_text()
+
+          if "import android.app.AlertDialog" not in content:
+              lines = content.splitlines()
+              for i, line in enumerate(lines):
+                  if line.startswith("package "):
+                      lines.insert(i + 1, "")
+                      lines.insert(i + 2, "import android.app.AlertDialog")
+                      break
+              else:
+                  raise SystemExit("Package declaration not found")
+
+              path.write_text("\n".join(lines) + "\n")
+
+          print("AlertDialog import checked")
           PY
 
       - name: Build APK
