@@ -34,6 +34,38 @@ jobs:
           PROJECT_DIR=$(dirname "$(find project -name settings.gradle | head -n 1)")
           echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
 
+      - name: Configure Chaquopy ABI
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+
+          path = os.path.join(
+              os.environ["PROJECT_DIR"], "app", "build.gradle"
+          )
+
+          with open(path, "r") as f:
+              content = f.read()
+
+          if not re.search(r'\babiFilters\b', content):
+              pattern = r'(defaultConfig\s*\{)'
+              replacement = r'''\1
+                  ndk {
+                      abiFilters "arm64-v8a", "armeabi-v7a", "x86_64"
+                  }'''
+
+              content, count = re.subn(pattern, replacement, content, count=1)
+
+              if count == 0:
+                  raise SystemExit("Could not find defaultConfig in build.gradle")
+
+              with open(path, "w") as f:
+                  f.write(content)
+
+          print("Chaquopy ABI configuration checked.")
+
+          PY
+
       - name: Build APK
         run: gradle -p "$PROJECT_DIR" assembleDebug
 
