@@ -42,30 +42,38 @@ jobs:
 
           path = os.path.join(os.environ["PROJECT_DIR"], "app", "build.gradle")
 
-          with open(path, "r") as f:
+          with open(path) as f:
               content = f.read()
 
-          android_block = re.search(r'\bandroid\s*\{', content)
-          if not android_block:
-              raise SystemExit("Android block not found")
+          android = re.search(r'\bandroid\s*\{', content)
+          default = re.search(r'\bdefaultConfig\s*\{', content)
 
-          fix = """
+          if not android or not default:
+              raise SystemExit("Could not find android/defaultConfig")
+
+          if not re.search(r'\bcompileOptions\s*\{', content):
+              pos = android.end()
+              content = content[:pos] + """
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-          """
+          """ + content[pos:]
 
-          content = (
-              content[:android_block.end()]
-              + fix
-              + content[android_block.end():]
-          )
+          default = re.search(r'\bdefaultConfig\s*\{', content)
+
+          if not re.search(r'\babiFilters\b', content):
+              pos = default.end()
+              content = content[:pos] + """
+              ndk {
+                  abiFilters "arm64-v8a", "armeabi-v7a", "x86_64"
+              }
+          """ + content[pos:]
 
           with open(path, "w") as f:
               f.write(content)
 
-          print("Java target set to 17")
+          print("Java 17 and NDK ABI filters configured.")
           PY
 
       - name: Build APK
